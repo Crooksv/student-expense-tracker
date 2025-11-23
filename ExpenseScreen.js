@@ -132,6 +132,28 @@ export default function ExpenseScreen() {
   
   const filteredExpenses = getFilteredExpenses();
 
+    const totalSpending = filteredExpenses.reduce(
+    (sum, expense) => sum + Number(expense.amount || 0),
+    0
+  );
+
+  const filterLabel =
+    filter === 'ALL'
+      ? 'All'
+      : filter === 'WEEK'
+      ? 'This Week'
+      : 'This Month';
+
+  const categoryTotals = filteredExpenses.reduce((totals, expense) => {
+    const cat = expense.category || 'Other';
+    const amt = Number(expense.amount || 0);
+    if (!totals[cat]) {
+      totals[cat] = 0;
+    }
+    totals[cat] += amt;
+    return totals;
+  }, {});
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.heading}>Student Expense Tracker</Text>
@@ -141,6 +163,24 @@ export default function ExpenseScreen() {
       <Button title="This Week" onPress={() => setFilter('WEEK')} />
       <Button title="This Month" onPress={() => setFilter('MONTH')} />
     </View>
+
+    <View style={styles.totalsCard}>
+  <Text style={styles.totalHeading}>Total Spending ({filterLabel}):</Text>
+  <Text style={styles.totalAmount}>${totalSpending.toFixed(2)}</Text>
+
+  <Text style={styles.categoryHeading}>By Category:</Text>
+
+  {Object.keys(categoryTotals).length === 0 ? (
+    <Text style={styles.categoryRow}>No data for this filter.</Text>
+  ) : (
+    Object.entries(categoryTotals).map(([cat, amt]) => (
+      <Text key={cat} style={styles.categoryRow}>
+        {cat}: ${amt.toFixed(2)}
+      </Text>
+    ))
+  )}
+</View>
+
 
       <View style={styles.form}>
         <TextInput
@@ -249,6 +289,34 @@ const styles = StyleSheet.create({
 expenseDate: {
   fontSize: 12,
   color: '#d1d5db',
+},
+
+totalsCard: {
+  backgroundColor: '#1f2937',
+  padding: 12,
+  borderRadius: 8,
+  marginBottom: 16,
+},
+totalHeading: {
+  color: '#e5e7eb',
+  fontSize: 14,
+  marginBottom: 4,
+},
+totalAmount: {
+  color: '#fbbf24',
+  fontSize: 20,
+  fontWeight: '700',
+  marginBottom: 8,
+},
+categoryHeading: {
+  color: '#e5e7eb',
+  fontSize: 14,
+  marginTop: 4,
+  marginBottom: 4,
+},
+categoryRow: {
+  color: '#d1d5db',
+  fontSize: 13,
 },
 
 });
