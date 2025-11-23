@@ -18,6 +18,40 @@ export default function ExpenseScreen() {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
+  const [filter, setFilter] = useState('ALL'); 
+
+  const getFilteredExpenses = () => {
+  if (filter === 'ALL') return expenses;
+
+  const today = new Date();
+
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  endOfMonth.setHours(23, 59, 59, 999);
+
+  return expenses.filter((expense) => {
+    if (!expense.date) return false; 
+    const expenseDate = new Date(expense.date);
+
+    if (filter === 'WEEK') {
+      return expenseDate >= startOfWeek && expenseDate <= endOfWeek;
+    }
+
+    if (filter === 'MONTH') {
+      return expenseDate >= startOfMonth && expenseDate <= endOfMonth;
+    }
+
+    return true;
+  });
+};
 
   const loadExpenses = async () => {
     const rows = await db.getAllAsync(
@@ -26,32 +60,34 @@ export default function ExpenseScreen() {
     setExpenses(rows);
   };
   const addExpense = async () => {
-    const amountNumber = parseFloat(amount);
+  const amountNumber = parseFloat(amount);
 
-    if (isNaN(amountNumber) || amountNumber <= 0) {
-      // Basic validation: ignore invalid or non-positive amounts
-      return;
-    }
+  if (isNaN(amountNumber) || amountNumber <= 0) {
+    return;
+  }
 
-    const trimmedCategory = category.trim();
-    const trimmedNote = note.trim();
+  const trimmedCategory = category.trim();
+  const trimmedNote = note.trim();
 
-    if (!trimmedCategory) {
-      // Category is required
-      return;
-    }
+  if (!trimmedCategory) {
+    return;
+  }
 
-    await db.runAsync(
-      'INSERT INTO expenses (amount, category, note) VALUES (?, ?, ?);',
-      [amountNumber, trimmedCategory, trimmedNote || null]
-    );
+  // Use today's date as YYYY-MM-DD
+  const today = new Date().toISOString().slice(0, 10); // e.g. "2025-11-22"
 
-    setAmount('');
-    setCategory('');
-    setNote('');
+  await db.runAsync(
+    'INSERT INTO expenses (amount, category, note, date) VALUES (?, ?, ?, ?);',
+    [amountNumber, trimmedCategory, trimmedNote || null, today]
+  );
 
-    loadExpenses();
-  };
+  setAmount('');
+  setCategory('');
+  setNote('');
+
+  loadExpenses();
+};
+
 
 
   const deleteExpense = async (id) => {
@@ -65,6 +101,7 @@ export default function ExpenseScreen() {
       <View style={{ flex: 1 }}>
         <Text style={styles.expenseAmount}>${Number(item.amount).toFixed(2)}</Text>
         <Text style={styles.expenseCategory}>{item.category}</Text>
+        <Text style={styles.expenseDate}>{item.date}</Text>
         {item.note ? <Text style={styles.expenseNote}>{item.note}</Text> : null}
       </View>
 
@@ -78,10 +115,11 @@ export default function ExpenseScreen() {
     async function setup() {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS expenses (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          amount REAL NOT NULL,
-          category TEXT NOT NULL,
-          note TEXT
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        note TEXT,
+        date TEXT NOT NULL
         );
       `);
 
@@ -91,9 +129,18 @@ export default function ExpenseScreen() {
     setup();
   }, []);
 
+  
+  const filteredExpenses = getFilteredExpenses();
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.heading}>Student Expense Tracker</Text>
+
+<View style={styles.filterRow}>
+      <Button title="All" onPress={() => setFilter('ALL')} />
+      <Button title="This Week" onPress={() => setFilter('WEEK')} />
+      <Button title="This Month" onPress={() => setFilter('MONTH')} />
+    </View>
 
       <View style={styles.form}>
         <TextInput
@@ -122,7 +169,7 @@ export default function ExpenseScreen() {
       </View>
 
       <FlatList
-        data={expenses}
+        data={filteredExpenses}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderExpense}
         ListEmptyComponent={
@@ -194,4 +241,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 12,
   },
+  filterRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 12,
+},
+expenseDate: {
+  fontSize: 12,
+  color: '#d1d5db',
+},
+
 });
