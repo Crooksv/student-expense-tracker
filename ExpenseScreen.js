@@ -18,7 +18,8 @@ export default function ExpenseScreen() {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
-  const [filter, setFilter] = useState('ALL'); 
+  const [filter, setFilter] = useState('ALL');
+  const [editingExpense, setEditingExpense] = useState(null); 
 
   const getFilteredExpenses = () => {
   if (filter === 'ALL') return expenses;
@@ -60,11 +61,11 @@ export default function ExpenseScreen() {
     setExpenses(rows);
   };
   const addExpense = async () => {
-  const amountNumber = parseFloat(amount);
+    const amountNumber = parseFloat(amount);
 
-  if (isNaN(amountNumber) || amountNumber <= 0) {
-    return;
-  }
+    if (isNaN(amountNumber) || amountNumber <= 0) {
+      return;
+    }
 
   const trimmedCategory = category.trim();
   const trimmedNote = note.trim();
@@ -88,11 +89,52 @@ export default function ExpenseScreen() {
   loadExpenses();
 };
 
+const saveEdit = async () => {
+  if (!editingExpense) return;
 
+     const amountNumber = parseFloat(amount);
+    if (isNaN(amountNumber) || amountNumber <= 0) {
+      return;
+    }
+
+    const trimmedCategory = category.trim();
+    const trimmedNote = note.trim();
+
+    if (!trimmedCategory) {
+      return;
+    }
+
+    await db.runAsync(
+      `UPDATE expenses
+       SET amount = ?, category = ?, note = ?, date = ?
+       WHERE id = ?;`,
+      [
+        amountNumber,
+        trimmedCategory,
+        trimmedNote || null,
+        editingExpense.date,
+        editingExpense.id,
+      ]
+    );
+
+    setAmount('');
+    setCategory('');
+    setNote('');
+    setEditingExpense(null);
+
+    loadExpenses();
+  };
 
   const deleteExpense = async (id) => {
     await db.runAsync('DELETE FROM expenses WHERE id = ?;', [id]);
     loadExpenses();
+  };
+
+  const startEditing = (expense) => {
+    setEditingExpense(expense);
+    setAmount(String(expense.amount));
+    setCategory(expense.category);
+    setNote(expense.note || '');
   };
 
 
@@ -105,10 +147,16 @@ export default function ExpenseScreen() {
         {item.note ? <Text style={styles.expenseNote}>{item.note}</Text> : null}
       </View>
 
+         <View style={styles.actions}>
+      <TouchableOpacity onPress={() => startEditing(item)} style={styles.editButton}>
+        <Text style={styles.editText}>Edit</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity onPress={() => deleteExpense(item.id)}>
         <Text style={styles.delete}>✕</Text>
       </TouchableOpacity>
     </View>
+     </View>
   );
 
   useEffect(() => {
@@ -205,7 +253,9 @@ export default function ExpenseScreen() {
           value={note}
           onChangeText={setNote}
         />
-        <Button title="Add Expense" onPress={addExpense} />
+        <Button
+         title={editingExpense ? "Save Changes" : "Add Expense"}
+          onPress={editingExpense ? saveEdit : addExpense}/>
       </View>
 
       <FlatList
@@ -318,5 +368,19 @@ categoryRow: {
   color: '#d1d5db',
   fontSize: 13,
 },
-
+actions: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+},
+editButton: {
+  paddingHorizontal: 6,
+  paddingVertical: 2,
+  backgroundColor: '#3b82f6',
+  borderRadius: 4,
+},
+editText: {
+  color: 'white',
+  fontSize: 12,
+},
 });
